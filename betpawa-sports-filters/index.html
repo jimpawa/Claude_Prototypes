@@ -895,6 +895,31 @@ button{font-family:inherit;}
   .backdrop,.sheet,.hsheet,.bs-sheet,.mnu-sheet,.swt::after,.chev,.appbar__head .chev,.smart__chev{transition:none !important;}
   .viewstack--anim .viewstack__layer--in,.viewstack--anim .viewstack__layer--out,.hsheet__hd-fade{animation:none !important;}
 }
+
+/* ──────────────────────────────────────────────────────────────
+   FULL-BLEED MOBILE EXPERIENCE
+   Strips desktop presentation chrome so a phone browser shows only
+   the screen itself: no review/options panel, no phone-frame mockup,
+   no dark stage. Added for hosted mobile usability testing.
+   ────────────────────────────────────────────────────────────── */
+.proto-ctrl, [data-omelette-chrome] { display:none !important; }
+html, body { background:var(--bg-page) !important; }
+body { display:block !important; padding:0 !important; margin:0 !important; }
+.phone {
+  width:100% !important;
+  max-width:100% !important;
+  height:100dvh !important;
+  min-height:100dvh !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+/* Larger screens: center a phone-width column (no mockup frame) so the
+   link still looks sane if opened on a laptop. */
+@media (min-width:480px){
+  body { display:flex !important; align-items:stretch !important; justify-content:center !important; }
+  .phone { width:420px !important; max-width:420px !important; height:100dvh !important; }
+}
+
 </style>
 </head>
 <body>
