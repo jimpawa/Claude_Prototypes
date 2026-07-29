@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#102718">
+  <title>Το Ποδόσφαιρο του Γιώργου</title>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#102718;touch-action:none;overscroll-behavior:none}
+    #stage{position:fixed;left:0;top:0;width:100vw;height:100dvh;overflow:hidden;background:#102718}
+    iframe{display:block;width:100%;height:100%;border:0;background:#102718}
+    #rotate{display:none;position:absolute;z-index:5;left:50%;top:8px;transform:translateX(-50%);padding:6px 11px;border-radius:999px;background:rgba(10,35,20,.78);color:#fff;font:800 12px system-ui,-apple-system,sans-serif;white-space:nowrap;pointer-events:none}
+    @media(orientation:portrait){#rotate{display:block}}
+  </style>
+</head>
+<body>
+  <main id="stage">
+    <div id="rotate">Παίζει και όρθιο · γύρισέ το πλάγια για μεγαλύτερο γήπεδο</div>
+    <iframe id="game" src="./index.html?v=mobile2" title="Το Ποδόσφαιρο του Γιώργου" allow="fullscreen; autoplay"></iframe>
+  </main>
+  <script>
+    const stage=document.getElementById('stage');
+    function fit(){
+      const v=window.visualViewport;
+      const w=Math.round(v?v.width:innerWidth);
+      const h=Math.round(v?v.height:innerHeight);
+      stage.style.left=Math.round(v?v.offsetLeft:0)+'px';
+      stage.style.top=Math.round(v?v.offsetTop:0)+'px';
+      stage.style.width=w+'px';
+      stage.style.height=h+'px';
+    }
+    fit();
+    addEventListener('resize',fit,{passive:true});
+    addEventListener('orientationchange',()=>setTimeout(fit,150),{passive:true});
+    if(window.visualViewport){visualViewport.addEventListener('resize',fit,{passive:true});visualViewport.addEventListener('scroll',fit,{passive:true})}
+  </script>
+</body>
+</html>
