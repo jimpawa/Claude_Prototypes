@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#167a3d" />
+  <title>Το Ποδόσφαιρο του Γιώργου</title>
+  <style>
+    :root{--ui:#ffffff;--ink:#17321f;--accent:#ffcf33;--blue:#2d7ff9;--red:#ff5252}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;height:100%;overflow:hidden;background:#102718;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;touch-action:none}
+    #wrap{position:relative;width:100vw;height:100vh;display:grid;place-items:center}
+    canvas{display:block;width:100vw;height:100vh;background:#2f9d50}
+    #hud{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.94);color:var(--ink);padding:8px 14px;border-radius:18px;font-weight:900;box-shadow:0 4px 16px rgba(0,0,0,.24);user-select:none}
+    #score{font-size:22px;min-width:84px;text-align:center}#time{font-size:17px;min-width:56px;text-align:center}
+    #message{position:absolute;left:50%;top:62px;transform:translateX(-50%);background:rgba(10,32,18,.82);color:white;border-radius:999px;padding:7px 14px;font-weight:800;opacity:0;transition:opacity .15s;pointer-events:none;white-space:nowrap}
+    #message.show{opacity:1}
+    #joystick{position:absolute;left:18px;bottom:22px;width:116px;height:116px;border-radius:50%;background:rgba(255,255,255,.20);border:3px solid rgba(255,255,255,.62);box-shadow:inset 0 0 20px rgba(0,0,0,.13);user-select:none}
+    #stick{position:absolute;left:50%;top:50%;width:50px;height:50px;transform:translate(-50%,-50%);border-radius:50%;background:rgba(255,255,255,.92);box-shadow:0 3px 10px rgba(0,0,0,.28)}
+    .action{position:absolute;right:18px;border:0;border-radius:50%;color:#102718;font-weight:1000;font-size:17px;box-shadow:0 5px 12px rgba(0,0,0,.28);touch-action:none}
+    #shoot{bottom:22px;width:92px;height:92px;background:var(--accent)}#pass{bottom:118px;right:88px;width:72px;height:72px;background:#fff}
+    #restart{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:15px 23px;border-radius:18px;border:0;background:var(--accent);color:#17321f;font-weight:1000;font-size:18px;box-shadow:0 8px 24px rgba(0,0,0,.35);display:none}
+    #tip{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);color:white;background:rgba(0,0,0,.38);padding:5px 10px;border-radius:10px;font-size:12px;font-weight:700;pointer-events:none}
+    @media (min-width:900px){canvas{width:min(100vw,900px)}#wrap{background:#102718}}
+    #startOverlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(rgba(10,45,24,.30),rgba(5,30,14,.78));z-index:20;color:white;text-align:center;padding:24px}
+    #startOverlay h1{font-size:32px;margin:0 0 8px;text-shadow:0 3px 8px rgba(0,0,0,.35)}#startOverlay p{font-size:17px;font-weight:750;margin:0 0 22px;max-width:330px}
+    #startGame{border:0;border-radius:22px;padding:18px 30px;background:#ffcf33;color:#17321f;font-size:24px;font-weight:1000;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div id="startOverlay"><h1>⚽ Το Ποδόσφαιρο του Γιώργου</h1><p>Βάλε γκολ πριν τελειώσουν τα 2 λεπτά!</p><button id="startGame">ΠΑΙΞΕ</button></div>
+  <canvas id="game"></canvas>
+  <div id="hud"><span>ΓΙΩΡΓΟΣ</span><span id="score">0 - 0</span><span id="time">2:00</span></div>
+  <div id="message"></div><div id="joystick"><div id="stick"></div></div>
+  <button class="action" id="pass">ΠΑΣΑ</button><button class="action" id="shoot">ΣΟΥΤ</button>
+  <button id="restart">ΠΑΙΞΕ ΞΑΝΑ</button><div id="tip">Κούνα τον μοχλό • ΠΑΣΑ ή ΣΟΥΤ</div>
+</div>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),scoreEl=document.getElementById('score'),timeEl=document.getElementById('time'),msgEl=document.getElementById('message'),joy=document.getElementById('joystick'),stick=document.getElementById('stick'),shootBtn=document.getElementById('shoot'),passBtn=document.getElementById('pass'),restartBtn=document.getElementById('restart'),startOverlay=document.getElementById('startOverlay'),startGameBtn=document.getElementById('startGame');
+let W=0,H=0,dpr=1,field={x:0,y:0,w:0,h:0},last=performance.now(),remaining=120,running=false,scoreA=0,scoreB=0,freeze=0,joyId=null;const keys={},input={x:0,y:0};
+const player={x:0,y:0,r:18,vx:0,vy:0,speed:260,color:'#2d7ff9',dirX:1,dirY:0},mate={x:0,y:0,r:16,vx:0,vy:0,speed:185,color:'#61a4ff'},enemy={x:0,y:0,r:18,vx:0,vy:0,speed:205,color:'#ff5252'},goalieA={x:0,y:0,r:19,color:'#ffe66d'},goalieB={x:0,y:0,r:19,color:'#ff9f43'},ball={x:0,y:0,r:10,vx:0,vy:0,owner:null};
+function resize(){dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);const marginX=Math.max(18,W*.04),top=58,bottom=12;field={x:marginX,y:top,w:W-marginX*2,h:H-top-bottom};resetPositions()}
+function resetPositions(){player.x=field.x+field.w*.25;player.y=field.y+field.h*.54;mate.x=field.x+field.w*.30;mate.y=field.y+field.h*.30;enemy.x=field.x+field.w*.67;enemy.y=field.y+field.h*.50;goalieA.x=field.x+24;goalieA.y=field.y+field.h/2;goalieB.x=field.x+field.w-24;goalieB.y=field.y+field.h/2;ball.x=field.x+field.w/2;ball.y=field.y+field.h/2;ball.vx=ball.vy=0;ball.owner=null}
+function showMessage(t,ms=1000){msgEl.textContent=t;msgEl.classList.add('show');clearTimeout(showMessage.t);showMessage.t=setTimeout(()=>msgEl.classList.remove('show'),ms)}
+function clampEntity(o){o.x=Math.max(field.x+o.r,Math.min(field.x+field.w-o.r,o.x));o.y=Math.max(field.y+o.r,Math.min(field.y+field.h-o.r,o.y))}function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function tryTakeBall(o){if(ball.owner||Math.hypot(ball.vx,ball.vy)>180)return;if(dist(o,ball)<o.r+ball.r+7)ball.owner=o}
+function kick(power,towardMate=false){if(!running||freeze>0||ball.owner!==player)return;let dx=player.dirX,dy=player.dirY;if(towardMate){dx=mate.x-player.x;dy=mate.y-player.y;const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l}ball.owner=null;ball.x=player.x+dx*(player.r+ball.r+4);ball.y=player.y+dy*(player.r+ball.r+4);ball.vx=dx*power;ball.vy=dy*power}
+function enemyKick(){if(ball.owner!==enemy)return;const targetY=field.y+field.h/2+(Math.random()-.5)*field.h*.35;let dx=goalieA.x-enemy.x,dy=targetY-enemy.y,l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;ball.owner=null;ball.vx=dx*430;ball.vy=dy*430}
+function goal(side){if(freeze>0)return;if(side==='A'){scoreA++;showMessage('ΓΚΟΟΟΛ! 🎉',1300)}else{scoreB++;showMessage('Ωχ! Πάμε ξανά!',1300)}scoreEl.textContent=scoreA+' - '+scoreB;freeze=1.35}
+function endGame(){running=false;restartBtn.style.display='block';showMessage(scoreA>scoreB?'Νίκη! Μπράβο Γιώργο! 🏆':scoreA<scoreB?'Καλή προσπάθεια! ⚽':'Ισοπαλία! 🤝',4000)}
+function update(dt){if(!running)return;if(freeze>0){freeze-=dt;if(freeze<=0)resetPositions();return}remaining=Math.max(0,remaining-dt);if(remaining<=0){remaining=0;endGame()}const mins=Math.floor(remaining/60),secs=Math.floor(remaining%60);timeEl.textContent=mins+':'+String(secs).padStart(2,'0');
+let ix=input.x+(keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0),iy=input.y+(keys.ArrowDown||keys.s?1:0)-(keys.ArrowUp||keys.w?1:0),il=Math.hypot(ix,iy);if(il>1){ix/=il;iy/=il}if(Math.hypot(ix,iy)>.08){player.dirX=ix;player.dirY=iy}player.vx=ix*player.speed;player.vy=iy*player.speed;player.x+=player.vx*dt;player.y+=player.vy*dt;clampEntity(player);
+const mateTargetX=field.x+field.w*.36,mateTargetY=field.y+field.h*(.5+Math.sin(performance.now()/1300)*.24);let mdx=mateTargetX-mate.x,mdy=mateTargetY-mate.y,ml=Math.hypot(mdx,mdy)||1;mate.x+=mdx/ml*mate.speed*dt;mate.y+=mdy/ml*mate.speed*dt;clampEntity(mate);
+const target=ball.owner===player?player:ball.owner===mate?mate:ball;let edx=target.x-enemy.x,edy=target.y-enemy.y,el=Math.hypot(edx,edy)||1;enemy.x+=edx/el*enemy.speed*dt;enemy.y+=edy/el*enemy.speed*dt;clampEntity(enemy);
+const gy=Math.max(field.y+field.h*.32,Math.min(field.y+field.h*.68,ball.y));goalieA.y+=(gy-goalieA.y)*Math.min(1,dt*5);goalieB.y+=(gy-goalieB.y)*Math.min(1,dt*5);tryTakeBall(player);tryTakeBall(mate);tryTakeBall(enemy);
+if(ball.owner){const o=ball.owner;let dx=1,dy=0;if(o===player){dx=player.dirX;dy=player.dirY}else if(o===mate){dx=1;dy=0}else{dx=-1;dy=(goalieA.y-o.y)/Math.max(120,Math.abs(goalieA.x-o.x))}const l=Math.hypot(dx,dy)||1;dx/=l;dy/=l;ball.x=o.x+dx*(o.r+ball.r+3);ball.y=o.y+dy*(o.r+ball.r+3);if(o===mate&&Math.random()<dt*.8){ball.owner=null;ball.vx=390;ball.vy=(field.y+field.h/2-mate.y)*1.2}if(o===enemy&&enemy.x<field.x+field.w*.45&&Math.random()<dt*2)enemyKick()}else{ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;const drag=Math.pow(.985,dt*60);ball.vx*=drag;ball.vy*=drag;if(ball.y-ball.r<field.y){ball.y=field.y+ball.r;ball.vy=Math.abs(ball.vy)*.75}if(ball.y+ball.r>field.y+field.h){ball.y=field.y+field.h-ball.r;ball.vy=-Math.abs(ball.vy)*.75}const goalTop=field.y+field.h*.36,goalBot=field.y+field.h*.64;if(ball.x<field.x-6&&ball.y>goalTop&&ball.y<goalBot)goal('B');else if(ball.x>field.x+field.w+6&&ball.y>goalTop&&ball.y<goalBot)goal('A');else{if(ball.x-ball.r<field.x){ball.x=field.x+ball.r;ball.vx=Math.abs(ball.vx)*.75}if(ball.x+ball.r>field.x+field.w){ball.x=field.x+field.w-ball.r;ball.vx=-Math.abs(ball.vx)*.75}}}
+if(ball.owner===player&&dist(enemy,player)<enemy.r+player.r+4&&Math.random()<dt*2.7)ball.owner=enemy;if(ball.owner===enemy&&dist(player,enemy)<enemy.r+player.r+4&&Math.random()<dt*2.5)ball.owner=player;[goalieA,goalieB].forEach(g=>{if(!ball.owner&&dist(g,ball)<g.r+ball.r+4){const dx=ball.x-g.x,dy=ball.y-g.y,l=Math.hypot(dx,dy)||1;ball.x=g.x+dx/l*(g.r+ball.r+4);ball.y=g.y+dy/l*(g.r+ball.r+4);ball.vx=dx/l*340;ball.vy=dy/l*340}})}
+function drawPitch(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#238747';ctx.fillRect(0,0,W,H);for(let i=0;i<8;i++){ctx.fillStyle=i%2?'#349f55':'#2c9650';ctx.fillRect(field.x+i*field.w/8,field.y,field.w/8+1,field.h)}ctx.strokeStyle='rgba(255,255,255,.92)';ctx.lineWidth=3;ctx.strokeRect(field.x,field.y,field.w,field.h);ctx.beginPath();ctx.moveTo(field.x+field.w/2,field.y);ctx.lineTo(field.x+field.w/2,field.y+field.h);ctx.stroke();ctx.beginPath();ctx.arc(field.x+field.w/2,field.y+field.h/2,Math.min(65,field.h*.12),0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(field.x+field.w/2,field.y+field.h/2,4,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();const goalTop=field.y+field.h*.36,goalH=field.h*.28,goalD=22;ctx.fillStyle='rgba(255,255,255,.16)';ctx.fillRect(field.x-goalD,goalTop,goalD,goalH);ctx.fillRect(field.x+field.w,goalTop,goalD,goalH);ctx.strokeStyle='white';ctx.strokeRect(field.x-goalD,goalTop,goalD,goalH);ctx.strokeRect(field.x+field.w,goalTop,goalD,goalH);const boxW=Math.min(100,field.w*.17),boxH=field.h*.46,by=field.y+(field.h-boxH)/2;ctx.strokeRect(field.x,by,boxW,boxH);ctx.strokeRect(field.x+field.w-boxW,by,boxW,boxH)}
+function drawPerson(o,label){ctx.save();ctx.shadowColor='rgba(0,0,0,.28)';ctx.shadowBlur=8;ctx.shadowOffsetY=4;ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,Math.PI*2);ctx.fillStyle=o.color;ctx.fill();ctx.shadowColor='transparent';ctx.strokeStyle='white';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#fff';ctx.font='900 12px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,o.x,o.y+1);ctx.restore()}
+function drawBall(){ctx.save();ctx.shadowColor='rgba(0,0,0,.3)';ctx.shadowBlur=6;ctx.shadowOffsetY=3;ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.shadowColor='transparent';ctx.fillStyle='#222';for(let i=0;i<5;i++){const a=i*Math.PI*2/5;ctx.beginPath();ctx.arc(ball.x+Math.cos(a)*5,ball.y+Math.sin(a)*5,2.2,0,Math.PI*2);ctx.fill()}ctx.restore()}
+function draw(){drawPitch();drawPerson(goalieA,'Τ');drawPerson(goalieB,'Τ');drawPerson(mate,'2');drawPerson(enemy,'Α');drawPerson(player,'Γ');drawBall()}function loop(now){const dt=Math.min(.035,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(loop)}
+function joyMove(clientX,clientY){const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=clientX-cx,dy=clientY-cy;const max=r.width*.34,l=Math.hypot(dx,dy);if(l>max){dx=dx/l*max;dy=dy/l*max}stick.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;input.x=dx/max;input.y=dy/max}function joyEnd(){joyId=null;input.x=input.y=0;stick.style.transform='translate(-50%,-50%)'}
+joy.addEventListener('pointerdown',e=>{joyId=e.pointerId;joy.setPointerCapture(e.pointerId);joyMove(e.clientX,e.clientY)});joy.addEventListener('pointermove',e=>{if(e.pointerId===joyId)joyMove(e.clientX,e.clientY)});joy.addEventListener('pointerup',joyEnd);joy.addEventListener('pointercancel',joyEnd);shootBtn.addEventListener('pointerdown',e=>{e.preventDefault();kick(560,false)});passBtn.addEventListener('pointerdown',e=>{e.preventDefault();kick(360,true)});addEventListener('keydown',e=>{keys[e.key]=true;if(e.key===' ')kick(560,false);if(e.key==='Enter')kick(360,true)});addEventListener('keyup',e=>keys[e.key]=false);startGameBtn.addEventListener('click',()=>{startOverlay.style.display='none';running=true;last=performance.now();showMessage('Πάμε Γιώργο! ⚽',1200)});restartBtn.addEventListener('click',()=>{scoreA=scoreB=0;remaining=120;running=true;freeze=0;scoreEl.textContent='0 - 0';restartBtn.style.display='none';resetPositions();showMessage('Πάμε Γιώργο!',900)});addEventListener('resize',resize);resize();requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>
